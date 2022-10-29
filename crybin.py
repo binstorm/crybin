@@ -70,8 +70,17 @@ class CryPE:
     def add_section(self, name: str, data: bytes):
         section = CrySection(self.pe, name, new_section=True)
         section.data = data
-        self.pe.OPTIONAL_HEADER.SizeOfImage += section.section.SizeOfRawData
+        self.pe.OPTIONAL_HEADER.SizeOfImage += \
+            align(section.section.SizeOfRawData, self.pe.OPTIONAL_HEADER.SectionAlignment)
+
+        # Align existing data to FileAlignment
+        self.pe.__data__ = bytearray(self.pe.__data__) + \
+            b'\x00' * ((self.pe.OPTIONAL_HEADER.FileAlignment - len(self.pe.__data__)) % self.pe.OPTIONAL_HEADER.FileAlignment)
+        
         self.pe.FILE_HEADER.NumberOfSections += 1
+        self.pe.sections.append(section.section)
+        self.pe.__structures__.append(section.section)
+        self.pe.__data__ += bytearray(data)
         return section
     
     def add_unpacker(self, encryption_module: str, unpacker_location: str, unpacker_entry: str, **params):

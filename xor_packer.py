@@ -89,7 +89,7 @@ def pack(path, out_path):
 
     # align existing data to file alignment
     pe.__data__ = bytearray(pe.__data__) + \
-        b'\x00' * ((pe.OPTIONAL_HEADER.FileAlignment - len(pe.__data__)) % pe.OPTIONAL_HEADER.FileAlignment) * 0
+        b'\x00' * ((pe.OPTIONAL_HEADER.FileAlignment - len(pe.__data__)) % pe.OPTIONAL_HEADER.FileAlignment)
 
     # Create the unpacker section
     unpacker_section = create_unpacker_section(pe, unpacker_section_vaddr, unpacker_len)
