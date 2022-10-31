@@ -14,8 +14,20 @@ class CrySection:
     def __init__(self, pe: pefile.PE, section_name: str, new_section: bool=False):
         self.pe = pe
         if new_section:
-            self.section = self.pe.sections[-1]
-            self.section.Name = section_name
+            self.section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__)
+            self.section.__unpack__(bytearray(self.section.sizeof()))
+
+            last_section = pe.sections[-1]
+            self.section.VirtualAddress = last_section.VirtualAddress + \
+                align(last_section.Misc_VirtualSize, self.pe.OPTIONAL_HEADER.SectionAlignment)
+            self.section.Name = section_name.encode('utf-8')
+            self.section.set_file_offset(last_section.get_file_offset() + last_section.sizeof())
+            self.section.PointerToRawData = len(self.pe.__data__)
+
+            self.section.Characteristics = \
+                pefile.SECTION_CHARACTERISTICS['IMAGE_SCN_MEM_EXECUTE'] | \
+                pefile.SECTION_CHARACTERISTICS['IMAGE_SCN_MEM_READ'] | \
+                pefile.SECTION_CHARACTERISTICS['IMAGE_SCN_CNT_CODE']
         else:
             self.section = self._find_section(section_name)
             if self.section is None:
@@ -27,9 +39,11 @@ class CrySection:
 
     @data.setter
     def data(self, data: bytes):
+        self.section.Misc = len(data)
+        self.section.PhysicalAddress = len(data)
         self.section.Misc_VirtualSize = len(data)
         self.section.SizeOfRawData = align(len(data), self.pe.OPTIONAL_HEADER.FileAlignment)
-        self.pe.set_bytes_at_rva(self.section.VirtualAddress, bytes(data))
+        self.pe.set_bytes_at_offset(self.section.PointerToRawData, bytes(data))
 
     @property
     def VirtualAddress(self):
@@ -68,19 +82,19 @@ class CryPE:
         section.data = encryption_module.encrypt(section.data, **params)
 
     def add_section(self, name: str, data: bytes):
+        # Align existing data to FileAlignment
+        self.pe.__data__ = bytearray(self.pe.__data__) + \
+            b'\x00' * ((self.pe.OPTIONAL_HEADER.FileAlignment - len(self.pe.__data__)) % self.pe.OPTIONAL_HEADER.FileAlignment)
+
         section = CrySection(self.pe, name, new_section=True)
         section.data = data
         self.pe.OPTIONAL_HEADER.SizeOfImage += \
             align(section.section.SizeOfRawData, self.pe.OPTIONAL_HEADER.SectionAlignment)
-
-        # Align existing data to FileAlignment
-        self.pe.__data__ = bytearray(self.pe.__data__) + \
-            b'\x00' * ((self.pe.OPTIONAL_HEADER.FileAlignment - len(self.pe.__data__)) % self.pe.OPTIONAL_HEADER.FileAlignment)
         
         self.pe.FILE_HEADER.NumberOfSections += 1
         self.pe.sections.append(section.section)
         self.pe.__structures__.append(section.section)
-        self.pe.__data__ += bytearray(data)
+        self.pe.__data__ += bytearray(data.ljust(section.section.SizeOfRawData, b'\x00'))
         return section
     
     def add_unpacker(self, encryption_module: str, unpacker_location: str, unpacker_entry: str, **params):

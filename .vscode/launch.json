@@ -17,7 +17,7 @@
                 "out.exe"
             ],
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": false
         }
     ]
 }
