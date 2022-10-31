@@ -113,8 +113,6 @@ def pack(path, out_path):
     # increase number of sections
     pe.FILE_HEADER.NumberOfSections += 1
 
-    print(pe.sections[-1])
-
     # write the new file
     pe.write(out_path)
     print(f'[+] Done, wrote to {out_path}')

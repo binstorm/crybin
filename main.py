@@ -16,8 +16,6 @@ def main():
     pe = CryPE(args.input_file)
     pe.encrypt_section('.text', args.encryption, key=args.key)
     pe.add_unpacker(args.encryption, args.unpacker_location, args.unpacker_entry, key=args.key)
-    print(pe.pe.sections[-1])
-    print("FileAlignment", hex(pe.pe.OPTIONAL_HEADER.FileAlignment))
     pe.save(args.output_file)
     print(f'File saved to {args.output_file}')
 
